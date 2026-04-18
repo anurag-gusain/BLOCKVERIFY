@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>BlockVerify — Product Authentication System</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/web3/1.10.0/web3.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;500;600;700&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --bg:#020c14; --panel:#061a2a; --border:#0a3a5c;
+    --accent:#00d4ff; --accent2:#00ff9d; --warn:#ffcc00;
+    --text:#c8e8f8; --text2:#6a9ab8;
+    --genuine:#00ff9d; --fake:#ff3860;
+    --glow:0 0 20px rgba(0,212,255,0.3); --glow2:0 0 20px rgba(0,255,157,0.3);
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{background:var(--bg);color:var(--text);font-family:'Rajdhani',sans-serif;min-height:100vh;overflow-x:hidden;}
+  body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(0,212,255,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(0,212,255,0.03) 1px,transparent 1px);background-size:40px 40px;pointer-events:none;z-index:0;}
+  .container{max-width:1300px;margin:0 auto;padding:0 20px;position:relative;z-index:1;}
+
+  header{border-bottom:1px solid var(--border);padding:18px 0;background:rgba(2,12,20,0.97);backdrop-filter:blur(10px);position:sticky;top:0;z-index:100;}
+  .header-inner{display:flex;justify-content:space-between;align-items:center;}
+  .logo{font-family:'Orbitron',monospace;font-size:1.4rem;font-weight:900;color:var(--accent);text-shadow:var(--glow);letter-spacing:2px;}
+  .logo span{color:var(--accent2);}
+  #connectBtn{background:transparent;border:1px solid var(--accent);color:var(--accent);padding:8px 20px;font-family:'Share Tech Mono',monospace;font-size:0.8rem;cursor:pointer;letter-spacing:1px;transition:all 0.3s;clip-path:polygon(8px 0%,100% 0%,calc(100% - 8px) 100%,0% 100%);}
+  #connectBtn:hover{background:var(--accent);color:var(--bg);}
+  #connectBtn.connected{background:var(--accent2);color:var(--bg);border-color:var(--accent2);}
+
+  .wallet-bar{background:var(--panel);border-bottom:1px solid var(--border);padding:7px 0;font-family:'Share Tech Mono',monospace;font-size:0.72rem;color:var(--text2);display:none;}
+  .wallet-bar.show{display:block;}
+  .wallet-bar .container{display:flex;gap:24px;align-items:center;flex-wrap:wrap;}
+  .wallet-bar span{color:var(--accent);}
+
+  .hero{padding:40px 0 20px;text-align:center;}
+  .hero h1{font-family:'Orbitron',monospace;font-size:clamp(1.4rem,4vw,2.6rem);font-weight:900;color:var(--accent);text-shadow:var(--glow);letter-spacing:3px;margin-bottom:8px;animation:fadeDown 0.8s ease;}
+  .hero p{color:var(--text2);font-size:0.95rem;letter-spacing:1px;animation:fadeDown 0.8s ease 0.2s both;}
+
+  .tabs{display:flex;margin:25px 0 0;border-bottom:1px solid var(--border);}
+  .tab{padding:11px 26px;font-family:'Orbitron',monospace;font-size:0.72rem;font-weight:700;letter-spacing:1px;cursor:pointer;border:none;background:transparent;color:var(--text2);border-bottom:2px solid transparent;transition:all 0.3s;}
+  .tab:hover{color:var(--accent);}
+  .tab.active{color:var(--accent);border-bottom-color:var(--accent);text-shadow:var(--glow);}
+
+  .panel{display:none;padding:28px 0;animation:fadeIn 0.4s ease;}
+  .panel.active{display:block;}
+
+  .card{background:var(--panel);border:1px solid var(--border);padding:24px;margin-bottom:20px;position:relative;clip-path:polygon(0 0,calc(100% - 14px) 0,100% 14px,100% 100%,14px 100%,0 calc(100% - 14px));}
+  .card::before{content:'';position:absolute;top:0;right:0;width:14px;height:14px;border-left:1px solid var(--accent);border-bottom:1px solid var(--accent);}
+  .card-title{font-family:'Orbitron',monospace;font-size:0.82rem;color:var(--accent);letter-spacing:2px;margin-bottom:18px;display:flex;align-items:center;gap:10px;}
+  .card-title::before{content:'';display:inline-block;width:3px;height:15px;background:var(--accent);box-shadow:var(--glow);}
+
+  .form-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;}
+  .form-group{display:flex;flex-direction:column;gap:5px;}
+  label{font-family:'Share Tech Mono',monospace;font-size:0.68rem;color:var(--text2);letter-spacing:1px;text-transform:uppercase;}
+  input{background:rgba(0,212,255,0.05);border:1px solid var(--border);color:var(--text);padding:9px 13px;font-family:'Share Tech Mono',monospace;font-size:0.83rem;outline:none;transition:all 0.3s;width:100%;}
+  input:focus{border-color:var(--accent);box-shadow:0 0 10px rgba(0,212,255,0.2);background:rgba(0,212,255,0.08);}
+  input.input-error{border-color:var(--fake)!important;box-shadow:0 0 10px rgba(255,56,96,0.3)!important;}
+
+  .btn{padding:11px 26px;font-family:'Orbitron',monospace;font-size:0.72rem;font-weight:700;letter-spacing:2px;cursor:pointer;border:none;transition:all 0.3s;clip-path:polygon(10px 0%,100% 0%,calc(100% - 10px) 100%,0% 100%);}
+  .btn-primary{background:var(--accent);color:var(--bg);}
+  .btn-primary:hover{background:#33ddff;box-shadow:0 0 25px rgba(0,212,255,0.5);transform:translateY(-1px);}
+  .btn-success{background:var(--accent2);color:var(--bg);}
+  .btn-success:hover{box-shadow:0 0 25px rgba(0,255,157,0.5);transform:translateY(-1px);}
+  .btn-danger{background:var(--fake);color:#fff;}
+  .btn-danger:hover{box-shadow:0 0 25px rgba(255,56,96,0.5);transform:translateY(-1px);}
+  .btn-outline{background:transparent;border:1px solid var(--accent);color:var(--accent);clip-path:none;}
+  .btn-outline:hover{background:var(--accent);color:var(--bg);}
+  .btn:disabled{opacity:0.4;cursor:not-allowed;transform:none!important;}
+  .btn-row{display:flex;gap:12px;flex-wrap:wrap;margin-top:18px;align-items:center;}
+
+  .status-msg{font-family:'Share Tech Mono',monospace;font-size:0.8rem;padding:11px 15px;margin-top:13px;display:none;border-left:3px solid var(--accent);background:rgba(0,212,255,0.05);animation:fadeIn 0.3s ease;}
+  .status-msg.success{border-color:var(--genuine);color:var(--genuine);background:rgba(0,255,157,0.05);}
+  .status-msg.error{border-color:var(--fake);color:var(--fake);background:rgba(255,56,96,0.05);}
+  .status-msg.info{border-color:var(--warn);color:var(--warn);background:rgba(255,204,0,0.05);}
+  .status-msg.show{display:block;}
+
+  .verify-result{margin-top:18px;padding:18px;display:none;animation:fadeIn 0.5s ease;border:1px solid var(--border);}
+  .verify-result.genuine{border-color:var(--genuine);background:rgba(0,255,157,0.05);box-shadow:0 0 30px rgba(0,255,157,0.1);}
+  .verify-result.fake{border-color:var(--fake);background:rgba(255,56,96,0.05);box-shadow:0 0 30px rgba(255,56,96,0.1);}
+  .result-badge{font-family:'Orbitron',monospace;font-size:1.4rem;font-weight:900;margin-bottom:14px;display:flex;align-items:center;gap:12px;}
+  .result-badge.genuine{color:var(--genuine);text-shadow:var(--glow2);}
+  .result-badge.fake{color:var(--fake);}
+  .result-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;}
+  .result-item{background:rgba(0,0,0,0.3);padding:10px 13px;}
+  .result-item .rl{font-size:0.62rem;color:var(--text2);font-family:'Share Tech Mono',monospace;text-transform:uppercase;letter-spacing:1px;}
+  .result-item .rv{font-size:0.88rem;color:var(--text);font-family:'Share Tech Mono',monospace;margin-top:3px;word-break:break-all;}
+
+  .stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:14px;margin-bottom:22px;}
+  .stat-box{background:var(--panel);border:1px solid var(--border);padding:16px;text-align:center;position:relative;overflow:hidden;}
+  .stat-box::after{content:'';position:absolute;bottom:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--accent),var(--accent2));}
+  .stat-num{font-family:'Orbitron',monospace;font-size:1.7rem;font-weight:900;color:var(--accent);text-shadow:var(--glow);}
+  .stat-label{font-size:0.65rem;color:var(--text2);font-family:'Share Tech Mono',monospace;letter-spacing:1px;text-transform:uppercase;margin-top:3px;}
+
+  .table-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:10px;}
+  .table-count{font-family:'Share Tech Mono',monospace;font-size:0.72rem;color:var(--text2);}
+  .table-count span{color:var(--accent);font-size:0.95rem;}
+  .table-wrap{overflow-x:auto;}
+  table{width:100%;border-collapse:collapse;font-size:0.78rem;}
+  th{font-family:'Orbitron',monospace;font-size:0.62rem;letter-spacing:1px;color:var(--accent);padding:11px 9px;text-align:left;border-bottom:1px solid var(--border);background:rgba(0,212,255,0.05);white-space:nowrap;}
+  td{padding:9px;border-bottom:1px solid rgba(10,58,92,0.5);font-family:'Share Tech Mono',monospace;color:var(--text);vertical-align:middle;}
+  tr:hover td{background:rgba(0,212,255,0.03);}
+  .badge{display:inline-block;padding:3px 9px;font-size:0.62rem;font-family:'Orbitron',monospace;font-weight:700;letter-spacing:1px;}
+  .badge-genuine{background:rgba(0,255,157,0.15);color:var(--genuine);border:1px solid var(--genuine);}
+  .badge-failed{background:rgba(255,56,96,0.15);color:var(--fake);border:1px solid var(--fake);}
+  .tx-link{color:var(--accent2);font-size:0.68rem;cursor:pointer;text-decoration:none;}
+  .tx-link:hover{text-decoration:underline;}
+  .empty-state{text-align:center;padding:45px;color:var(--text2);font-family:'Share Tech Mono',monospace;font-size:0.78rem;}
+  .fetching{text-align:center;padding:30px;color:var(--warn);font-family:'Share Tech Mono',monospace;font-size:0.78rem;animation:pulse 1s infinite;}
+
+  @keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+  @keyframes fadeDown{from{opacity:0;transform:translateY(-15px)}to{opacity:1;transform:translateY(0)}}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
+  .loading{animation:pulse 1s infinite;}
+
+  footer{border-top:1px solid var(--border);padding:18px 0;text-align:center;font-family:'Share Tech Mono',monospace;font-size:0.68rem;color:var(--text2);margin-top:40px;}
+  footer span{color:var(--accent);}
+  ::-webkit-scrollbar{width:5px;height:5px;}
+  ::-webkit-scrollbar-track{background:var(--bg);}
+  ::-webkit-scrollbar-thumb{background:var(--border);}
+  ::-webkit-scrollbar-thumb:hover{background:var(--accent);}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="container header-inner">
+    <div class="logo">BLOCK<span>VERIFY</span></div>
+    <button id="connectBtn" onclick="connectWallet()">[ CONNECT WALLET ]</button>
+  </div>
+</header>
+
+<div class="wallet-bar" id="walletBar">
+  <div class="container">
+    <div>WALLET: <span id="walletAddr">—</span></div>
+    <div>NETWORK: <span id="networkName">—</span></div>
+    <div>BALANCE: <span id="walletBal">—</span> ETH</div>
+    <div>CONTRACT: <span id="contractAddr">—</span></div>
+    <div>TOTAL ON CHAIN: <span id="chainTotal">—</span> PRODUCTS</div>
+  </div>
+</div>
+
+<div class="container">
+  <div class="hero">
+    <h1>PRODUCT AUTHENTICATION SYSTEM</h1>
+    <p>Blockchain-powered anti-counterfeiting using Ethereum Smart Contracts</p>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('register')">REGISTER PRODUCT</button>
+    <button class="tab" onclick="switchTab('verify')">VERIFY PRODUCT</button>
+    <button class="tab" onclick="switchTab('records')" id="recordsTab">ALL RECORDS</button>
+  </div>
+
+  <!-- REGISTER -->
+  <div class="panel active" id="tab-register">
+    <div class="card">
+      <div class="card-title">REGISTER NEW PRODUCT ON BLOCKCHAIN</div>
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Product ID *</label>
+          <input type="text" id="sProductId" placeholder="e.g. P001" oninput="clearErr('sProductId')"/>
+        </div>
+        <div class="form-group">
+          <label>Product Name *</label>
+          <input type="text" id="sProductName" placeholder="e.g. Nike Air Max" oninput="clearErr('sProductName')"/>
+        </div>
+        <div class="form-group">
+          <label>Manufacturer Name *</label>
+          <input type="text" id="sManufacturer" placeholder="e.g. Nike Inc" oninput="clearErr('sManufacturer')"/>
+        </div>
+      </div>
+      <div class="status-msg" id="regStatus"></div>
+      <div class="btn-row">
+        <button class="btn btn-primary" id="regBtn" onclick="addProduct()">[ REGISTER ON BLOCKCHAIN ]</button>
+        <span id="regLoader" style="font-family:'Share Tech Mono',monospace;font-size:0.75rem;color:var(--warn);display:none;" class="loading">⏳ Confirm in MetaMask...</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- VERIFY -->
+  <div class="panel" id="tab-verify">
+    <div class="card">
+      <div class="card-title">VERIFY PRODUCT AUTHENTICITY</div>
+      <div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;">
+        <div class="form-group" style="flex:1;min-width:200px;">
+          <label>Enter Product ID</label>
+          <input type="text" id="vProductId" placeholder="e.g. P001" onkeypress="if(event.key==='Enter') verifyProduct()"/>
+        </div>
+        <button class="btn btn-success" onclick="verifyProduct()">[ VERIFY NOW ]</button>
+      </div>
+      <div id="verifyResult" class="verify-result"></div>
+    </div>
+  </div>
+
+  <!-- RECORDS — fetched from blockchain -->
+  <div class="panel" id="tab-records">
+    <div class="stats-grid">
+      <div class="stat-box"><div class="stat-num" id="statTotal">0</div><div class="stat-label">Total Products</div></div>
+      <div class="stat-box"><div class="stat-num" id="statSuccess">0</div><div class="stat-label">Registered</div></div>
+      <div class="stat-box"><div class="stat-num" id="statGas">—</div><div class="stat-label">Avg Gas Used</div></div>
+      <div class="stat-box"><div class="stat-num" id="statBlock">—</div><div class="stat-label">Latest Block</div></div>
+    </div>
+    <div class="card">
+      <div class="table-header">
+        <div class="card-title" style="margin:0">BLOCKCHAIN TRANSACTION RECORDS</div>
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+          <div class="table-count">TOTAL: <span id="recordCount">0</span></div>
+          <button class="btn btn-outline" onclick="fetchAllRecords()">[ REFRESH ]</button>
+          <button class="btn btn-success" onclick="downloadCSV()">[ DOWNLOAD CSV ]</button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th><th>PRODUCT ID</th><th>PRODUCT NAME</th><th>MANUFACTURER</th>
+              <th>TX HASH</th><th>BLOCK NO.</th><th>GAS USED</th>
+              <th>GAS PRICE (Gwei)</th><th>TX COST (ETH)</th><th>REG. DATE</th><th>STATUS</th>
+            </tr>
+          </thead>
+          <tbody id="recordsBody">
+            <tr><td colspan="11" class="empty-state">CONNECT WALLET TO LOAD RECORDS</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<footer>
+  <div class="container">
+    BLOCKCHAIN-BASED FAKE PRODUCT DETECTION SYSTEM &nbsp;|&nbsp;
+    ETHEREUM SMART CONTRACT &nbsp;|&nbsp;
+    DEVELOPED BY <span>B.TECH CS FINAL YEAR</span>
+  </div>
+</footer>
+
+<script>
+// ── CONFIG ──────────────────────────────────────────
+const CONTRACT_ADDRESS = "0x87e0C248a695a6Bfd36d77DcF236faD2ddc9F722";
+const CONTRACT_ABI = [
+  {"inputs":[{"internalType":"string","name":"_productId","type":"string"},{"internalType":"string","name":"_productName","type":"string"},{"internalType":"string","name":"_manufacturerName","type":"string"}],"name":"addProduct","outputs":[],"stateMutability":"nonpayable","type":"function"},
+  {"inputs":[],"stateMutability":"nonpayable","type":"constructor"},
+  {"anonymous":false,"inputs":[{"indexed":false,"internalType":"string","name":"productId","type":"string"},{"indexed":false,"internalType":"string","name":"productName","type":"string"},{"indexed":false,"internalType":"string","name":"manufacturerName","type":"string"}],"name":"ProductAdded","type":"event"},
+  {"inputs":[],"name":"getAllProductIds","outputs":[{"internalType":"string[]","name":"","type":"string[]"}],"stateMutability":"view","type":"function"},
+  {"inputs":[],"name":"getTotalProducts","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},
+  {"inputs":[],"name":"owner","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},
+  {"inputs":[{"internalType":"uint256","name":"","type":"uint256"}],"name":"productIds","outputs":[{"internalType":"string","name":"","type":"string"}],"stateMutability":"view","type":"function"},
+  {"inputs":[{"internalType":"string","name":"_productId","type":"string"}],"name":"verifyProduct","outputs":[{"internalType":"bool","name":"isGenuine","type":"bool"},{"internalType":"string","name":"productName","type":"string"},{"internalType":"string","name":"manufacturerName","type":"string"},{"internalType":"uint256","name":"registrationDate","type":"uint256"}],"stateMutability":"view","type":"function"}
+];
+
+// ── STATE ────────────────────────────────────────────
+let web3, contract, userAccount;
+let allRecords = []; // blockchain se fetched records
+
+// ── HELPERS ──────────────────────────────────────────
+function showStatus(id, msg, type) {
+  const el = document.getElementById(id);
+  el.textContent = '▶ ' + msg;
+  el.className = 'status-msg ' + type + ' show';
+}
+function clearErr(id) { document.getElementById(id).classList.remove('input-error'); }
+
+function switchTab(name) {
+  ['register','verify','records'].forEach((n,i) => {
+    document.querySelectorAll('.tab')[i].classList.toggle('active', n===name);
+  });
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('tab-'+name).classList.add('active');
+  if (name === 'records' && web3) fetchAllRecords();
+}
+
+// ── CONNECT WALLET ────────────────────────────────────
+async function connectWallet() {
+  if (!window.ethereum) { alert('MetaMask not found! Install MetaMask in Chrome.'); return; }
+  try {
+    const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+    userAccount = accounts[0];
+    web3 = new Web3(window.ethereum);
+    contract = new web3.eth.Contract(CONTRACT_ABI, CONTRACT_ADDRESS);
+
+    const netId = await web3.eth.net.getId();
+    const bal = await web3.eth.getBalance(userAccount);
+    const block = await web3.eth.getBlockNumber();
+    const total = await contract.methods.getTotalProducts().call();
+
+    document.getElementById('connectBtn').textContent = '[ ✓ CONNECTED ]';
+    document.getElementById('connectBtn').classList.add('connected');
+    document.getElementById('walletBar').classList.add('show');
+    document.getElementById('walletAddr').textContent = userAccount.slice(0,6)+'...'+userAccount.slice(-4);
+    document.getElementById('networkName').textContent = netId == 1337 ? 'GANACHE LOCAL' : 'NETWORK #'+netId;
+    document.getElementById('walletBal').textContent = parseFloat(web3.utils.fromWei(bal,'ether')).toFixed(4);
+    document.getElementById('contractAddr').textContent = CONTRACT_ADDRESS.slice(0,6)+'...'+CONTRACT_ADDRESS.slice(-4);
+    document.getElementById('chainTotal').textContent = total;
+    document.getElementById('statBlock').textContent = block;
+
+  } catch(e) { alert('Connection failed: ' + e.message); }
+}
+
+// ── ADD PRODUCT ───────────────────────────────────────
+async function addProduct() {
+  if (!web3 || !userAccount) { showStatus('regStatus','Please connect MetaMask first!','error'); return; }
+
+  const idEl = document.getElementById('sProductId');
+  const nameEl = document.getElementById('sProductName');
+  const mfrEl = document.getElementById('sManufacturer');
+  const id = idEl.value.trim(), name = nameEl.value.trim(), mfr = mfrEl.value.trim();
+
+  if (!id)   { idEl.classList.add('input-error');   showStatus('regStatus','Product ID is required!','error'); return; }
+  if (!name) { nameEl.classList.add('input-error'); showStatus('regStatus','Product Name is required!','error'); return; }
+  if (!mfr)  { mfrEl.classList.add('input-error');  showStatus('regStatus','Manufacturer Name is required!','error'); return; }
+
+  // Duplicate check
+  showStatus('regStatus','Checking blockchain for duplicate ID...','info');
+  try {
+    const check = await contract.methods.verifyProduct(id).call();
+    if (check[0] === true) {
+      idEl.classList.add('input-error');
+      showStatus('regStatus', `❌ Product ID "${id}" already registered on blockchain! Use a different ID.`, 'error');
+      return;
+    }
+  } catch(e) { showStatus('regStatus','Blockchain check failed: '+e.message,'error'); return; }
+
+  document.getElementById('regBtn').disabled = true;
+  document.getElementById('regLoader').style.display = 'inline';
+  showStatus('regStatus','Please confirm transaction in MetaMask...','info');
+
+  try {
+    const gasEst = await contract.methods.addProduct(id,name,mfr).estimateGas({from:userAccount});
+    const gasPrice = await web3.eth.getGasPrice();
+    const tx = await contract.methods.addProduct(id,name,mfr).send({from:userAccount, gas:Math.floor(gasEst*1.2)});
+
+    const total = await contract.methods.getTotalProducts().call();
+    document.getElementById('chainTotal').textContent = total;
+
+    showStatus('regStatus', `✓ "${name}" registered! Block: ${tx.blockNumber} | Gas Used: ${tx.gasUsed}`, 'success');
+    idEl.value=''; nameEl.value=''; mfrEl.value='';
+
+  } catch(e) {
+    showStatus('regStatus','❌ '+(e.message.includes('already registered')?`ID "${id}" already on blockchain!`:e.message.slice(0,100)),'error');
+  } finally {
+    document.getElementById('regBtn').disabled = false;
+    document.getElementById('regLoader').style.display = 'none';
+  }
+}
+
+// ── VERIFY PRODUCT ────────────────────────────────────
+async function verifyProduct() {
+  if (!web3 || !userAccount) { alert('Connect MetaMask first!'); return; }
+  const id = document.getElementById('vProductId').value.trim();
+  if (!id) { alert('Please enter a Product ID!'); return; }
+  const div = document.getElementById('verifyResult');
+  div.style.display = 'none';
+  try {
+    const r = await contract.methods.verifyProduct(id).call();
+    const isGenuine=r[0], name=r[1], mfr=r[2], ts=r[3];
+    const date = ts>0 ? new Date(parseInt(ts)*1000).toLocaleString() : '—';
+    div.className = 'verify-result '+(isGenuine?'genuine':'fake');
+    div.innerHTML = `
+      <div class="result-badge ${isGenuine?'genuine':'fake'}">${isGenuine?'✓ GENUINE PRODUCT':'✗ FAKE / NOT REGISTERED'}</div>
+      <div class="result-grid">
+        <div class="result-item"><div class="rl">Product ID</div><div class="rv">${id}</div></div>
+        <div class="result-item"><div class="rl">Product Name</div><div class="rv">${isGenuine?name:'—'}</div></div>
+        <div class="result-item"><div class="rl">Manufacturer</div><div class="rv">${isGenuine?mfr:'—'}</div></div>
+        <div class="result-item"><div class="rl">Registered On</div><div class="rv">${date}</div></div>
+        <div class="result-item"><div class="rl">Blockchain Status</div><div class="rv">${isGenuine?'✓ VERIFIED ON CHAIN':'✗ NOT FOUND ON CHAIN'}</div></div>
+      </div>`;
+    div.style.display = 'block';
+  } catch(e) { alert('Error: '+e.message); }
+}
+
+// ── FETCH ALL RECORDS FROM BLOCKCHAIN ────────────────
+async function fetchAllRecords() {
+  if (!web3 || !userAccount) {
+    document.getElementById('recordsBody').innerHTML = '<tr><td colspan="11" class="empty-state">CONNECT WALLET FIRST</td></tr>';
+    return;
+  }
+
+  document.getElementById('recordsBody').innerHTML = '<tr><td colspan="11" class="fetching">⏳ FETCHING DATA FROM BLOCKCHAIN...</td></tr>';
+  allRecords = [];
+
+  try {
+    // Get all product IDs from blockchain
+    const ids = await contract.methods.getAllProductIds().call();
+    const block = await web3.eth.getBlockNumber();
+    document.getElementById('statBlock').textContent = block;
+
+    if (ids.length === 0) {
+      document.getElementById('recordsBody').innerHTML = '<tr><td colspan="11" class="empty-state">NO PRODUCTS REGISTERED YET</td></tr>';
+      updateStats();
+      return;
+    }
+
+    // Get ProductAdded events for TX details
+    const events = await contract.getPastEvents('ProductAdded', { fromBlock: 0, toBlock: 'latest' });
+
+    // Map events by productId for quick lookup
+    const eventMap = {};
+    for (const ev of events) {
+      const pid = ev.returnValues.productId;
+      if (!eventMap[pid]) {
+        // Get transaction receipt for gas details
+        try {
+          const receipt = await web3.eth.getTransactionReceipt(ev.transactionHash);
+          const txInfo  = await web3.eth.getTransaction(ev.transactionHash);
+          const blkInfo = await web3.eth.getBlock(ev.blockNumber);
+          const gasPrice = txInfo.gasPrice;
+          const gasUsed  = receipt.gasUsed;
+          const cost = parseFloat(web3.utils.fromWei((BigInt(gasUsed)*BigInt(gasPrice)).toString(),'ether')).toFixed(8);
+          const gpGwei = parseFloat(web3.utils.fromWei(gasPrice.toString(),'gwei')).toFixed(4);
+          const date = blkInfo ? new Date(parseInt(blkInfo.timestamp)*1000).toLocaleString() : '—';
+          eventMap[pid] = { txHash:ev.transactionHash, blockNo:ev.blockNumber, gasUsed, gasPrice:gpGwei, txCost:cost, date };
+        } catch(_) {
+          eventMap[pid] = { txHash:ev.transactionHash, blockNo:ev.blockNumber, gasUsed:'—', gasPrice:'—', txCost:'—', date:'—' };
+        }
+      }
+    }
+
+    // Fetch product details + merge with tx data
+    for (let i=0; i<ids.length; i++) {
+      const pid = ids[i];
+      const r = await contract.methods.verifyProduct(pid).call();
+      const ev = eventMap[pid] || {};
+      const regDate = r[3]>0 ? new Date(parseInt(r[3])*1000).toLocaleString() : (ev.date||'—');
+
+      allRecords.push({
+        no: i+1,
+        productId: pid,
+        productName: r[1],
+        manufacturer: r[2],
+        txHash: ev.txHash || '—',
+        blockNo: ev.blockNo || '—',
+        gasUsed: ev.gasUsed || '—',
+        gasPrice: ev.gasPrice || '—',
+        txCost: ev.txCost || '—',
+        timestamp: regDate,
+        status: r[0] ? 'SUCCESS' : 'UNKNOWN'
+      });
+    }
+
+    renderTable();
+    updateStats();
+
+  } catch(e) {
+    document.getElementById('recordsBody').innerHTML = `<tr><td colspan="11" class="empty-state">ERROR: ${e.message.slice(0,80)}</td></tr>`;
+  }
+}
+
+// ── RENDER TABLE ──────────────────────────────────────
+function renderTable() {
+  document.getElementById('recordCount').textContent = allRecords.length;
+  const tbody = document.getElementById('recordsBody');
+  if (!allRecords.length) {
+    tbody.innerHTML = '<tr><td colspan="11" class="empty-state">NO RECORDS FOUND</td></tr>';
+    return;
+  }
+  tbody.innerHTML = allRecords.map(r=>`
+    <tr>
+      <td>${r.no}</td>
+      <td>${r.productId}</td>
+      <td>${r.productName}</td>
+      <td>${r.manufacturer}</td>
+      <td class="tx-link" title="${r.txHash}">${r.txHash!=='—'?r.txHash.slice(0,14)+'...':'—'}</td>
+      <td>${r.blockNo}</td>
+      <td>${r.gasUsed!=='—'?parseInt(r.gasUsed).toLocaleString():r.gasUsed}</td>
+      <td>${r.gasPrice}</td>
+      <td>${r.txCost}</td>
+      <td>${r.timestamp}</td>
+      <td><span class="badge badge-${r.status==='SUCCESS'?'genuine':'failed'}">${r.status}</span></td>
+    </tr>`).join('');
+}
+
+// ── UPDATE STATS ──────────────────────────────────────
+function updateStats() {
+  document.getElementById('statTotal').textContent = allRecords.length;
+  document.getElementById('statSuccess').textContent = allRecords.filter(r=>r.status==='SUCCESS').length;
+  const gasNums = allRecords.filter(r=>r.gasUsed!=='—').map(r=>parseInt(r.gasUsed));
+  const avgGas = gasNums.length ? Math.round(gasNums.reduce((a,b)=>a+b,0)/gasNums.length) : 0;
+  document.getElementById('statGas').textContent = avgGas ? avgGas.toLocaleString() : '—';
+}
+
+// ── DOWNLOAD CSV ──────────────────────────────────────
+function downloadCSV() {
+  if (!allRecords.length) { alert('No records! Click REFRESH first.'); return; }
+  const h = ['#','Product ID','Product Name','Manufacturer','TX Hash','Block Number','Gas Used','Gas Price (Gwei)','TX Cost (ETH)','Registration Date','Status'];
+  const rows = allRecords.map(r=>[r.no,r.productId,r.productName,r.manufacturer,r.txHash,r.blockNo,r.gasUsed,r.gasPrice,r.txCost,r.timestamp,r.status]);
+  const csv = [h,...rows].map(row=>row.map(v=>`"${v}"`).join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
+  a.download = `BlockVerify_Blockchain_Report_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+}
+</script>
+</body>
+</html>
